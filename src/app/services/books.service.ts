@@ -59,9 +59,47 @@ export class BooksService {
     this.saveBooks();
     this.emitBooks();
   }
-
-  // Méthode pour supprimer un livre
-  removeBook(book: Book) {
+  
+  // Méthode de téléchargement d'un fichier (ici ce sera une image/photo)
+  // cette méthode est asynchrone: prend un objet de type File et retourne une Promise car le téléchargement d'un fichier prend du temps
+  uploadFile(file: File) {
+    return new Promise(
+      (resolve, reject) => {
+		// on donne au fichier un nom UNIQUE (Date.now() retourne le nombre de millisecondes passées depuis le 1er janvier 1970)
+        const almostUniqueFileName = Date.now().toString();
+        const upload = firebase.storage().ref()
+          .child('images/' + almostUniqueFileName + file.name).put(file);
+        upload.on(firebase.storage.TaskEvent.STATE_CHANGED,
+          () => {
+            console.log('Chargement…');
+          },
+          (error) => {
+            console.log('Erreur de chargement ! : ' + error);
+            reject();
+          },
+          () => {
+            resolve(upload.snapshot.ref.getDownloadURL());
+          }
+        );
+      }
+    );
+	}
+	
+	// Méthode qui supprime un livre et son image associée :
+	// avec delete() il faut la référence du fichier à supprimer, 
+	// on récupère celle-ci en passant l'URL du fichier à refFromUrl()
+	removeBook(book: Book) {
+    if(book.photo) {
+      const storageRef = firebase.storage().refFromURL(book.photo);
+      storageRef.delete().then(
+        () => {
+          console.log('Photo removed!');
+        },
+        (error) => {
+          console.log('Could not remove photo! : ' + error);
+        }
+      );
+    }
     const bookIndexToRemove = this.books.findIndex(
       (bookEl) => {
         if(bookEl === book) {
@@ -72,5 +110,6 @@ export class BooksService {
     this.books.splice(bookIndexToRemove, 1);
     this.saveBooks();
     this.emitBooks();
-  }
+	}
+  
 }
